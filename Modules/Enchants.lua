@@ -14,101 +14,108 @@ local ENCHANTABLE_SLOTS = {
 }
 
 local EnchantModule = {}
+local checkTimer    = nil   -- debounce handle
+local alertFrame    = nil   -- on-screen alert, created lazily
 
--- Set default values for any slot not yet saved
+-- ---------------------------------------------------------------------------
+-- Database
+-- ---------------------------------------------------------------------------
+
 function EnchantModule:InitDB(db)
     if not db.enchants then
-        db.enchants = { slots = {} }
+        db.enchants = { slots = {}, notify = {} }
+    end
+    if not db.enchants.notify then
+        db.enchants.notify = {}
+    end
+    -- Notification defaults
+    if db.enchants.notify.chat   == nil then db.enchants.notify.chat   = true  end
+    if db.enchants.notify.screen == nil then db.enchants.notify.screen = true  end
+    -- Per-slot defaults
+    if not db.enchants.slots then
+        db.enchants.slots = {}
     end
     for _, slot in ipairs(ENCHANTABLE_SLOTS) do
         if not db.enchants.slots[slot.id] then
-            db.enchants.slots[slot.id] = { enabled = true, minIlvl = 0 }
+            db.enchants.slots[slot.id] = { enabled = true, minIlvl = 250 }
         end
     end
 end
 
--- Build the settings UI inside the provided content frame
-function EnchantModule:BuildUI(parent, db)
-    local COL_NAME_X  = 12
-    local COL_CHECK_X = 185
-    local COL_LABEL_X = 230
-    local COL_INPUT_X = 305
-    local ROW_HEIGHT  = 30
-    local HEADER_H    = 54  -- pixels used by title + column headers
+-- ---------------------------------------------------------------------------
+-- On-screen alert frame
+-- ---------------------------------------------------------------------------
 
-    -- Section title
-    local sectionTitle = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    sectionTitle:SetPoint("TOPLEFT", parent, "TOPLEFT", COL_NAME_X, -10)
-    sectionTitle:SetText("Enchant Reminders")
-    sectionTitle:SetTextColor(1, 0.82, 0)
+local function GetAlertFrame()
+    if alertFrame then return alertFrame end
 
-    -- Column headers
-    local hSlot = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    hSlot:SetPoint("TOPLEFT", parent, "TOPLEFT", COL_NAME_X, -34)
-    hSlot:SetText("Slot")
-    hSlot:SetTextColor(0.6, 0.6, 0.6)
+    alertFrame = CreateFrame("Frame", "andeRemindersEnchantAlert", UIParent, "BackdropTemplate")
+    alertFrame:SetSize(260, 80)
+    alertFrame:SetPoint("TOP", UIParent, "TOP", 0, -220)
+    alertFrame:SetMovable(true)
+    alertFrame:EnableMouse(true)
+    alertFrame:RegisterForDrag("LeftButton")
+    alertFrame:SetScript("OnDragStart", alertFrame.StartMoving)
+    alertFrame:SetScript("OnDragStop", alertFrame.StopMovingOrSizing)
+    alertFrame:SetFrameStrata("MEDIUM")
+    alertFrame:SetBackdrop({
+        bgFile   = "Interface/DialogFrame/UI-DialogBox-Background",
+        edgeFile = "Interface/DialogFrame/UI-DialogBox-Border",
+        tile = true, tileSize = 32, edgeSize = 24,
+        insets = { left = 8, right = 8, top = 8, bottom = 8 },
+    })
+    alertFrame:Hide()
 
-    local hRemind = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    hRemind:SetPoint("TOPLEFT", parent, "TOPLEFT", COL_CHECK_X - 8, -34)
-    hRemind:SetText("Remind")
-    hRemind:SetTextColor(0.6, 0.6, 0.6)
+    -- Header
+    local header = alertFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    header:SetPoint("TOPLEFT", alertFrame, "TOPLEFT", 10, -10)
+    header:SetText("|cFFFF6600andeReminders|r")
+    alertFrame.header = header
 
-    local hIlvl = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    hIlvl:SetPoint("TOPLEFT", parent, "TOPLEFT", COL_LABEL_X, -34)
-    hIlvl:SetText("Min iLvl")
-    hIlvl:SetTextColor(0.6, 0.6, 0.6)
+    -- Body text (slot list)
+    local body = alertFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    body:SetPoint("TOPLEFT",  alertFrame, "TOPLEFT",  10, -26)
+    body:SetPoint("TOPRIGHT", alertFrame, "TOPRIGHT", -10, -26)
+    body:SetJustifyH("LEFT")
+    body:SetWordWrap(true)
+    alertFrame.body = body
 
-    -- Divider below column headers
-    local divider = CreateFrame("Frame", nil, parent, "BackdropTemplate")
-    divider:SetHeight(1)
-    divider:SetBackdrop({ bgFile = "Interface/Buttons/WHITE8x8" })
-    divider:SetBackdropColor(0.28, 0.28, 0.28, 1)
-    divider:SetPoint("TOPLEFT",  parent, "TOPLEFT",  5, -HEADER_H + 2)
-    divider:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -5, -HEADER_H + 2)
-
-    -- One row per enchantable slot
-    for i, slot in ipairs(ENCHANTABLE_SLOTS) do
-        local slotData = db.enchants.slots[slot.id]
-        local y = -(HEADER_H + (i - 1) * ROW_HEIGHT + 8)
-
-        -- Slot name label
-        local nameLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        nameLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", COL_NAME_X, y)
-        nameLabel:SetText(slot.name)
-
-        -- Enabled checkbox
-        local cb = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
-        cb:SetSize(24, 24)
-        cb:SetPoint("TOPLEFT", parent, "TOPLEFT", COL_CHECK_X, y + 3)
-        cb:SetChecked(slotData.enabled)
-        cb:SetScript("OnClick", function(self)
-            slotData.enabled = self:GetChecked()
-        end)
-
-        -- "Min iLvl:" label
-        local ilvlLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        ilvlLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", COL_LABEL_X, y)
-        ilvlLabel:SetText("Min iLvl:")
-
-        -- Numeric edit box
-        local editBox = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
-        editBox:SetSize(58, 20)
-        editBox:SetPoint("TOPLEFT", parent, "TOPLEFT", COL_INPUT_X, y + 3)
-        editBox:SetAutoFocus(false)
-        editBox:SetNumeric(true)
-        editBox:SetMaxLetters(4)
-        editBox:SetText(tostring(slotData.minIlvl or 0))
-
-        local function SaveValue(self)
-            slotData.minIlvl = tonumber(self:GetText()) or 0
+    -- Close button
+    local closeBtn = CreateFrame("Button", nil, alertFrame, "UIPanelCloseButton")
+    closeBtn:SetSize(20, 20)
+    closeBtn:SetPoint("TOPRIGHT", alertFrame, "TOPRIGHT", 2, 2)
+    closeBtn:SetScript("OnClick", function()
+        if alertFrame.hideTimer then
+            alertFrame.hideTimer:Cancel()
+            alertFrame.hideTimer = nil
         end
-        editBox:SetScript("OnEnterPressed", function(self)
-            SaveValue(self)
-            self:ClearFocus()
-        end)
-        editBox:SetScript("OnEditFocusLost", SaveValue)
-    end
+        alertFrame:Hide()
+    end)
+
+    return alertFrame
 end
+
+function EnchantModule:ShowAlert(text)
+    local af = GetAlertFrame()
+
+    af.body:SetText(text)
+    -- Resize frame to fit the text
+    af:SetHeight(af.body:GetHeight() + 44)
+
+    -- Cancel any existing auto-hide
+    if af.hideTimer then
+        af.hideTimer:Cancel()
+    end
+    af:Show()
+    af.hideTimer = C_Timer.NewTimer(10, function()
+        af:Hide()
+        af.hideTimer = nil
+    end)
+end
+
+-- ---------------------------------------------------------------------------
+-- Check logic
+-- ---------------------------------------------------------------------------
 
 -- Returns true if the given slot has an item but is missing an enchant.
 -- Adapted from NorthernSkyRaidTools ReadyCheck.lua (EnchantCheck).
@@ -128,16 +135,16 @@ function EnchantModule:CheckSlot(slotId)
     return enchantId == 0  -- true = enchant is missing
 end
 
--- Returns the item level of an equipped item (0 if slot is empty or not yet cached).
+-- Returns the effective item level of an equipped item (0 if empty/uncached).
 function EnchantModule:GetSlotItemLevel(slotId)
     local link = GetInventoryItemLink("player", slotId)
     if not link then return 0 end
     local name, _, _, itemLevel = GetItemInfo(link)
-    if not name then return 0 end  -- item not in cache yet
+    if not name then return 0 end
     return itemLevel or 0
 end
 
--- Check all configured slots. Returns a list of slot names missing enchants.
+-- Returns a list of slot names that are missing enchants, respecting per-slot settings.
 function EnchantModule:CheckAll(db)
     local missing = {}
     for _, slot in ipairs(ENCHANTABLE_SLOTS) do
@@ -152,6 +159,172 @@ function EnchantModule:CheckAll(db)
         end
     end
     return missing
+end
+
+-- Run the check and dispatch notifications.
+function EnchantModule:RunCheck()
+    if not AR.db then return end
+    local missing = self:CheckAll(AR.db)
+    if #missing == 0 then return end
+
+    local notify = AR.db.enchants.notify
+    local slots  = table.concat(missing, ", ")
+
+    if notify.chat then
+        print("|cFFFF6600[andeReminders]|r Missing enchant: " .. slots)
+    end
+    if notify.screen then
+        self:ShowAlert("|cFFFFCC00Missing enchant:|r\n" .. slots)
+    end
+end
+
+-- Schedule a check with a short debounce so rapid events (login gear loading,
+-- multiple swaps) collapse into a single pass.
+local function ScheduleCheck()
+    if checkTimer then
+        checkTimer:Cancel()
+    end
+    checkTimer = C_Timer.NewTimer(2, function()
+        checkTimer = nil
+        EnchantModule:RunCheck()
+    end)
+end
+
+-- ---------------------------------------------------------------------------
+-- Events
+-- ---------------------------------------------------------------------------
+
+local enchantEvents = CreateFrame("Frame")
+enchantEvents:RegisterEvent("PLAYER_LOGIN")
+enchantEvents:RegisterEvent("PLAYER_ENTERING_WORLD")
+enchantEvents:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
+enchantEvents:SetScript("OnEvent", function(_, event)
+    ScheduleCheck()
+end)
+
+-- ---------------------------------------------------------------------------
+-- Settings UI
+-- ---------------------------------------------------------------------------
+
+function EnchantModule:BuildUI(parent, db)
+    local COL_NAME_X  = 12
+    local COL_CHECK_X = 185
+    local COL_LABEL_X = 230
+    local COL_INPUT_X = 305
+    local ROW_HEIGHT  = 28
+
+    -- Section title
+    local sectionTitle = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    sectionTitle:SetPoint("TOPLEFT", parent, "TOPLEFT", COL_NAME_X, -10)
+    sectionTitle:SetText("Enchant Reminders")
+    sectionTitle:SetTextColor(1, 0.82, 0)
+
+    -- ---- Notification options ----
+    local notifyLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    notifyLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", COL_NAME_X, -36)
+    notifyLabel:SetText("Notify via:")
+    notifyLabel:SetTextColor(0.7, 0.7, 0.7)
+
+    -- Chat checkbox
+    local cbChat = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
+    cbChat:SetSize(22, 22)
+    cbChat:SetPoint("TOPLEFT", parent, "TOPLEFT", COL_NAME_X + 60, -33)
+    cbChat:SetChecked(db.enchants.notify.chat)
+    cbChat:SetScript("OnClick", function(self)
+        db.enchants.notify.chat = self:GetChecked()
+    end)
+
+    local cbChatLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    cbChatLabel:SetPoint("LEFT", cbChat, "RIGHT", 2, 0)
+    cbChatLabel:SetText("Chat")
+
+    -- Screen checkbox
+    local cbScreen = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
+    cbScreen:SetSize(22, 22)
+    cbScreen:SetPoint("LEFT", cbChatLabel, "RIGHT", 16, 0)
+    cbScreen:SetChecked(db.enchants.notify.screen)
+    cbScreen:SetScript("OnClick", function(self)
+        db.enchants.notify.screen = self:GetChecked()
+    end)
+
+    local cbScreenLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    cbScreenLabel:SetPoint("LEFT", cbScreen, "RIGHT", 2, 0)
+    cbScreenLabel:SetText("On-screen")
+
+    -- Divider between notify options and slot list
+    local notifyDiv = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+    notifyDiv:SetHeight(1)
+    notifyDiv:SetBackdrop({ bgFile = "Interface/Buttons/WHITE8x8" })
+    notifyDiv:SetBackdropColor(0.28, 0.28, 0.28, 1)
+    notifyDiv:SetPoint("TOPLEFT",  parent, "TOPLEFT",  5, -60)
+    notifyDiv:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -5, -60)
+
+    -- ---- Column headers ----
+    local HEADER_TOP = -68
+
+    local hSlot = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    hSlot:SetPoint("TOPLEFT", parent, "TOPLEFT", COL_NAME_X, HEADER_TOP)
+    hSlot:SetText("Slot")
+    hSlot:SetTextColor(0.6, 0.6, 0.6)
+
+    local hRemind = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    hRemind:SetPoint("TOPLEFT", parent, "TOPLEFT", COL_CHECK_X - 8, HEADER_TOP)
+    hRemind:SetText("Remind")
+    hRemind:SetTextColor(0.6, 0.6, 0.6)
+
+    local hIlvl = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    hIlvl:SetPoint("TOPLEFT", parent, "TOPLEFT", COL_LABEL_X, HEADER_TOP)
+    hIlvl:SetText("Min iLvl")
+    hIlvl:SetTextColor(0.6, 0.6, 0.6)
+
+    -- Divider below column headers
+    local colDiv = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+    colDiv:SetHeight(1)
+    colDiv:SetBackdrop({ bgFile = "Interface/Buttons/WHITE8x8" })
+    colDiv:SetBackdropColor(0.28, 0.28, 0.28, 1)
+    colDiv:SetPoint("TOPLEFT",  parent, "TOPLEFT",  5, HEADER_TOP - 14)
+    colDiv:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -5, HEADER_TOP - 14)
+
+    -- ---- Slot rows ----
+    local SLOTS_TOP = HEADER_TOP - 20
+
+    for i, slot in ipairs(ENCHANTABLE_SLOTS) do
+        local slotData = db.enchants.slots[slot.id]
+        local y = SLOTS_TOP - (i - 1) * ROW_HEIGHT
+
+        local nameLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        nameLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", COL_NAME_X, y)
+        nameLabel:SetText(slot.name)
+
+        local cb = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
+        cb:SetSize(24, 24)
+        cb:SetPoint("TOPLEFT", parent, "TOPLEFT", COL_CHECK_X, y + 3)
+        cb:SetChecked(slotData.enabled)
+        cb:SetScript("OnClick", function(self)
+            slotData.enabled = self:GetChecked()
+        end)
+
+        local ilvlLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        ilvlLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", COL_LABEL_X, y)
+        ilvlLabel:SetText("Min iLvl:")
+
+        local editBox = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
+        editBox:SetSize(58, 20)
+        editBox:SetPoint("TOPLEFT", parent, "TOPLEFT", COL_INPUT_X, y + 3)
+        editBox:SetAutoFocus(false)
+        editBox:SetNumeric(true)
+        editBox:SetMaxLetters(4)
+        editBox:SetText(tostring(slotData.minIlvl or 0))
+
+        local function SaveValue(self)
+            slotData.minIlvl = tonumber(self:GetText()) or 0
+        end
+        editBox:SetScript("OnEnterPressed", function(self)
+            SaveValue(self)
+            self:ClearFocus()
+        end)
+        editBox:SetScript("OnEditFocusLost", SaveValue)
+    end
 end
 
 AR:RegisterModule("Enchants", EnchantModule)
