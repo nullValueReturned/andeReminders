@@ -7,3 +7,4 @@
 
 andeReminders.lua
 Modules\Enchants.lua
+Modules\Gear.lua
