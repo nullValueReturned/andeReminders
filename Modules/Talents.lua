@@ -5,6 +5,13 @@ local checkTimer   = nil
 local alertFrame   = nil   -- box for unspent talent points
 local buildTextFrame = nil -- loose flash text for active build
 
+local FONTS = {
+    { name = "Default",  path = "Fonts\\FRIZQT__.TTF" },
+    { name = "Serif",    path = "Fonts\\MORPHEUS.ttf"  },
+    { name = "Blocky",   path = "Fonts\\skurri.ttf"    },
+    { name = "Narrow",   path = "Fonts\\ARIALN.TTF"    },
+}
+
 -- ---------------------------------------------------------------------------
 -- Database
 -- ---------------------------------------------------------------------------
@@ -17,6 +24,11 @@ function TalentModule:InitDB(db)
     if not db.talents.checks then db.talents.checks = {} end
     if db.talents.checks.unspentPoints   == nil then db.talents.checks.unspentPoints   = true end
     if db.talents.checks.showActiveBuild == nil then db.talents.checks.showActiveBuild = true end
+    if not db.talents.buildText then db.talents.buildText = {} end
+    if not db.talents.buildText.font then db.talents.buildText.font = FONTS[1].path end
+    if db.talents.buildText.r == nil then db.talents.buildText.r = 1   end
+    if db.talents.buildText.g == nil then db.talents.buildText.g = 0.8 end
+    if db.talents.buildText.b == nil then db.talents.buildText.b = 0   end
 end
 
 -- ---------------------------------------------------------------------------
@@ -70,7 +82,7 @@ function TalentModule:ShowAlert(text)
 end
 
 -- ---------------------------------------------------------------------------
--- Active build flash text (no box, 36px, center screen, 10s)
+-- Active build flash text (no box, configurable font/color, center screen, 10s)
 -- ---------------------------------------------------------------------------
 
 local function GetBuildTextFrame()
@@ -82,7 +94,6 @@ local function GetBuildTextFrame()
     f:EnableMouse(false)
 
     local fs = f:CreateFontString(nil, "OVERLAY")
-    fs:SetFont("Fonts\\FRIZQT__.TTF", 36, "OUTLINE")
     fs:SetShadowColor(0, 0, 0, 1)
     fs:SetShadowOffset(2, -2)
     fs:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
@@ -96,7 +107,14 @@ end
 
 function TalentModule:ShowBuildText(name)
     local btf = GetBuildTextFrame()
-    btf.text:SetText("|cFFFFCC00" .. name .. "|r")
+    local cfg = AR.db and AR.db.talents and AR.db.talents.buildText
+    local font = (cfg and cfg.font) or FONTS[1].path
+    local r    = (cfg and cfg.r)    or 1
+    local g    = (cfg and cfg.g)    or 0.8
+    local b    = (cfg and cfg.b)    or 0
+    btf.text:SetFont(font, 36, "OUTLINE")
+    btf.text:SetTextColor(r, g, b)
+    btf.text:SetText(name)
     btf:Show()
     if btf.hideTimer then btf.hideTimer:Cancel() end
     btf.hideTimer = C_Timer.NewTimer(10, function()
@@ -317,6 +335,97 @@ function TalentModule:BuildUI(parent, db)
     tleNote:SetPoint("TOPLEFT", parent, "TOPLEFT", COL_NAME_X + 30, y)
     tleNote:SetText("Uses TalentLoadoutEx names if the addon is loaded.")
     tleNote:SetTextColor(0.5, 0.5, 0.5)
+
+    -- ---- Divider before build text appearance options ----
+    y = y - 18
+    local div2 = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+    div2:SetHeight(1)
+    div2:SetBackdrop({ bgFile = "Interface/Buttons/WHITE8x8" })
+    div2:SetBackdropColor(0.28, 0.28, 0.28, 1)
+    div2:SetPoint("TOPLEFT",  parent, "TOPLEFT",  5, y)
+    div2:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -5, y)
+
+    y = y - 14
+
+    -- ---- Font selector ----
+    local fontSectionLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    fontSectionLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", COL_NAME_X, y)
+    fontSectionLabel:SetText("Build text appearance:")
+    fontSectionLabel:SetTextColor(0.7, 0.7, 0.7)
+
+    y = y - ROW_HEIGHT + 8
+
+    local fontLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    fontLabel:SetPoint("TOPLEFT", parent, "TOPLEFT", COL_NAME_X, y)
+    fontLabel:SetText("Font:")
+
+    -- Find the saved font's index
+    local fontIndex = 1
+    for i, f in ipairs(FONTS) do
+        if f.path == db.talents.buildText.font then fontIndex = i; break end
+    end
+
+    local prevBtn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+    prevBtn:SetSize(24, 22)
+    prevBtn:SetText("<")
+    prevBtn:SetPoint("LEFT", fontLabel, "RIGHT", 10, 0)
+
+    local fontNameLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    fontNameLabel:SetPoint("LEFT", prevBtn, "RIGHT", 6, 0)
+    fontNameLabel:SetWidth(70)
+    fontNameLabel:SetJustifyH("CENTER")
+    fontNameLabel:SetText(FONTS[fontIndex].name)
+
+    local nextBtn = CreateFrame("Button", nil, parent, "UIPanelButtonTemplate")
+    nextBtn:SetSize(24, 22)
+    nextBtn:SetText(">")
+    nextBtn:SetPoint("LEFT", fontNameLabel, "RIGHT", 6, 0)
+
+    prevBtn:SetScript("OnClick", function()
+        fontIndex = ((fontIndex - 2) % #FONTS) + 1
+        db.talents.buildText.font = FONTS[fontIndex].path
+        fontNameLabel:SetText(FONTS[fontIndex].name)
+    end)
+    nextBtn:SetScript("OnClick", function()
+        fontIndex = (fontIndex % #FONTS) + 1
+        db.talents.buildText.font = FONTS[fontIndex].path
+        fontNameLabel:SetText(FONTS[fontIndex].name)
+    end)
+
+    -- ---- Color picker ----
+    local colorLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    colorLabel:SetPoint("LEFT", nextBtn, "RIGHT", 20, 0)
+    colorLabel:SetText("Color:")
+
+    local swatch = CreateFrame("Button", nil, parent)
+    swatch:SetSize(22, 22)
+    swatch:SetPoint("LEFT", colorLabel, "RIGHT", 8, 0)
+
+    local swatchBorder = swatch:CreateTexture(nil, "BACKGROUND")
+    swatchBorder:SetAllPoints()
+    swatchBorder:SetColorTexture(0.5, 0.5, 0.5, 1)
+
+    local swatchTex = swatch:CreateTexture(nil, "ARTWORK")
+    swatchTex:SetPoint("TOPLEFT", swatch, "TOPLEFT", 1, -1)
+    swatchTex:SetPoint("BOTTOMRIGHT", swatch, "BOTTOMRIGHT", -1, 1)
+    swatchTex:SetColorTexture(db.talents.buildText.r, db.talents.buildText.g, db.talents.buildText.b)
+
+    swatch:SetScript("OnClick", function()
+        local cfg = db.talents.buildText
+        ColorPickerFrame:SetupColorPickerAndShow({
+            r = cfg.r, g = cfg.g, b = cfg.b,
+            hasOpacity = false,
+            swatchFunc = function()
+                local r, g, b = ColorPickerFrame:GetColorRGB()
+                cfg.r, cfg.g, cfg.b = r, g, b
+                swatchTex:SetColorTexture(r, g, b)
+            end,
+            cancelFunc = function(prev)
+                cfg.r, cfg.g, cfg.b = prev.r, prev.g, prev.b
+                swatchTex:SetColorTexture(prev.r, prev.g, prev.b)
+            end,
+        })
+    end)
 end
 
 AR:RegisterModule("Talents", TalentModule)
