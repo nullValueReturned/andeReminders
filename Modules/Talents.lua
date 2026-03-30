@@ -129,6 +129,16 @@ local function HasUnspentTalentPoints()
     return false
 end
 
+-- TLE zeroes out the hero talent section of the export string (replaces it with A's),
+-- while Blizzard's GenerateImportString includes hero talent data.
+-- Both strings share the same class/spec talent data at the end.
+-- Strip the 4-char header and any leading A's to get the comparable core,
+-- then check whether the Blizzard string ends with the TLE core.
+local function GetTalentCore(s)
+    if not s or #s < 5 then return "" end
+    return s:sub(5):match("^A*(.+)") or ""
+end
+
 -- Returns the name of the currently active talent loadout.
 -- Checks TalentLoadoutEx first (if loaded), then falls back to the native WoW loadout name.
 local function GetActiveLoadoutName()
@@ -142,9 +152,13 @@ local function GetActiveLoadoutName()
         if unitClass and activeConfigID and TalentLoadoutEx[unitClass] and TalentLoadoutEx[unitClass][specIndex] then
             local currentString = C_Traits.GenerateImportString(activeConfigID)
             if currentString then
+                local blizzCore = GetTalentCore(currentString)
                 for _, v in pairs(TalentLoadoutEx[unitClass][specIndex]) do
-                    if v.text and v.name and v.text == currentString then
-                        return v.name
+                    if v.text and v.name then
+                        local tleCore = GetTalentCore(v.text)
+                        if tleCore ~= "" and #blizzCore >= #tleCore and blizzCore:sub(-#tleCore) == tleCore then
+                            return v.name
+                        end
                     end
                 end
             end
