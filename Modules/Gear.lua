@@ -38,7 +38,7 @@ local SPEC_DATA = {
     -- Hunter (cannot equip shields)
     [253] = { name = "BM Hunter",              stat = "AGI" },
     [254] = { name = "MM Hunter",              stat = "AGI" },
-    [255] = { name = "Survival Hunter",        stat = "AGI", require2H = true },
+    [255] = { name = "Survival Hunter",        stat = "AGI" },
     -- Mage (cannot equip shields)
     [62]  = { name = "Arcane Mage",            stat = "INT" },
     [63]  = { name = "Fire Mage",              stat = "INT" },
