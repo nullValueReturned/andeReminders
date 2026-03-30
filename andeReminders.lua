@@ -66,7 +66,7 @@ function AR:CreateSettingsWindow()
     -- Title text
     local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     title:SetPoint("TOP", f, "TOP", 0, -14)
-    title:SetText("andeReminders")
+    title:SetText("anDeReminders")
 
     -- Close button
     local closeBtn = CreateFrame("Button", nil, f, "UIPanelCloseButton")

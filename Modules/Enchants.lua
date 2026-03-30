@@ -31,6 +31,10 @@ function EnchantModule:InitDB(db)
     -- Notification defaults
     if db.enchants.notify.chat   == nil then db.enchants.notify.chat   = true  end
     if db.enchants.notify.screen == nil then db.enchants.notify.screen = true  end
+    -- Global ilvl override
+    if not db.enchants.globalIlvl then
+        db.enchants.globalIlvl = { enabled = false, value = 250 }
+    end
     -- Per-slot defaults
     if not db.enchants.slots then
         db.enchants.slots = {}
@@ -134,11 +138,15 @@ end
 -- Returns a list of slot names that are missing enchants, respecting per-slot settings.
 function EnchantModule:CheckAll(db)
     local missing = {}
+    local globalIlvl = db.enchants.globalIlvl
     for _, slot in ipairs(ENCHANTABLE_SLOTS) do
         local slotData = db.enchants.slots[slot.id]
         if slotData and slotData.enabled then
+            local minIlvl = (globalIlvl and globalIlvl.enabled)
+                and (globalIlvl.value or 0)
+                or  (slotData.minIlvl or 0)
             local ilvl = self:GetSlotItemLevel(slot.id)
-            if ilvl >= (slotData.minIlvl or 0) then
+            if ilvl >= minIlvl then
                 if self:CheckSlot(slot.id) then
                     table.insert(missing, slot.name)
                 end
@@ -238,6 +246,33 @@ function EnchantModule:BuildUI(parent, db)
     cbScreenLabel:SetPoint("LEFT", cbScreen, "RIGHT", 2, 0)
     cbScreenLabel:SetText("On-screen")
 
+    -- Global iLvl checkbox
+    local cbGlobalIlvl = CreateFrame("CheckButton", nil, parent, "UICheckButtonTemplate")
+    cbGlobalIlvl:SetSize(22, 22)
+    cbGlobalIlvl:SetPoint("LEFT", cbScreenLabel, "RIGHT", 16, 0)
+    cbGlobalIlvl:SetChecked(db.enchants.globalIlvl.enabled)
+
+    local cbGlobalIlvlLabel = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    cbGlobalIlvlLabel:SetPoint("LEFT", cbGlobalIlvl, "RIGHT", 2, 0)
+    cbGlobalIlvlLabel:SetText("Global iLvl:")
+
+    local globalIlvlInput = CreateFrame("EditBox", nil, parent, "InputBoxTemplate")
+    globalIlvlInput:SetSize(58, 20)
+    globalIlvlInput:SetPoint("LEFT", cbGlobalIlvlLabel, "RIGHT", 4, -1)
+    globalIlvlInput:SetAutoFocus(false)
+    globalIlvlInput:SetNumeric(true)
+    globalIlvlInput:SetMaxLetters(4)
+    globalIlvlInput:SetText(tostring(db.enchants.globalIlvl.value or 250))
+
+    local function SaveGlobalIlvl(self)
+        db.enchants.globalIlvl.value = tonumber(self:GetText()) or 0
+    end
+    globalIlvlInput:SetScript("OnEnterPressed", function(self)
+        SaveGlobalIlvl(self)
+        self:ClearFocus()
+    end)
+    globalIlvlInput:SetScript("OnEditFocusLost", SaveGlobalIlvl)
+
     -- Divider between notify options and slot list
     local notifyDiv = CreateFrame("Frame", nil, parent, "BackdropTemplate")
     notifyDiv:SetHeight(1)
@@ -274,6 +309,7 @@ function EnchantModule:BuildUI(parent, db)
 
     -- ---- Slot rows ----
     local SLOTS_TOP = HEADER_TOP - 20
+    local slotEditBoxes = {}
 
     for i, slot in ipairs(ENCHANTABLE_SLOTS) do
         local slotData = db.enchants.slots[slot.id]
@@ -311,7 +347,27 @@ function EnchantModule:BuildUI(parent, db)
             self:ClearFocus()
         end)
         editBox:SetScript("OnEditFocusLost", SaveValue)
+
+        table.insert(slotEditBoxes, editBox)
     end
+
+    -- ---- Global iLvl enable/disable wiring ----
+    local function UpdateGlobalIlvlState()
+        local enabled = db.enchants.globalIlvl.enabled
+        globalIlvlInput:SetEnabled(enabled)
+        globalIlvlInput:SetAlpha(enabled and 1 or 0.4)
+        for _, eb in ipairs(slotEditBoxes) do
+            eb:SetEnabled(not enabled)
+            eb:SetAlpha(enabled and 0.4 or 1)
+        end
+    end
+
+    cbGlobalIlvl:SetScript("OnClick", function(self)
+        db.enchants.globalIlvl.enabled = self:GetChecked()
+        UpdateGlobalIlvlState()
+    end)
+
+    UpdateGlobalIlvlState()
 end
 
 AR:RegisterModule("Enchants", EnchantModule)
