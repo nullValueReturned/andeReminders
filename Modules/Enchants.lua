@@ -54,7 +54,7 @@ local function GetAlertFrame()
     if alertFrame then return alertFrame end
 
     alertFrame = CreateFrame("Frame", "andeRemindersEnchantAlert", UIParent, "BackdropTemplate")
-    alertFrame:SetSize(260, 80)
+    alertFrame:SetSize(360, 80)
     alertFrame:SetPoint("TOP", UIParent, "TOP", 0, -220)
     alertFrame:SetMovable(true)
     alertFrame:EnableMouse(true)
