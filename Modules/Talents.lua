@@ -123,7 +123,7 @@ local function GetBuildTextFrame()
     return buildTextFrame
 end
 
-function TalentModule:ShowBuildText(name)
+function TalentModule:ShowBuildText(name, icon)
     local btf = GetBuildTextFrame()
     local cfg = AR.db and AR.db.talents and AR.db.talents.buildText
     local fontName = (cfg and cfg.fontName) or DEFAULT_FONT_NAME
@@ -132,7 +132,19 @@ function TalentModule:ShowBuildText(name)
     local b        = (cfg and cfg.b)        or 0
     btf.text:SetFont(ResolveFontPath(fontName), 36, "OUTLINE")
     btf.text:SetTextColor(r, g, b)
-    btf.text:SetText(name)
+
+    local displayText
+    if icon then
+        if type(icon) == "string" then
+            displayText = string.format("|A:%s:36:36|a %s", icon, name)
+        else
+            displayText = string.format("|T%d:36:36|t %s", icon, name)
+        end
+    else
+        displayText = name
+    end
+
+    btf.text:SetText(displayText)
     btf:Show()
     if btf.hideTimer then btf.hideTimer:Cancel() end
     btf.hideTimer = C_Timer.NewTimer(10, function()
@@ -165,57 +177,37 @@ local function HasUnspentTalentPoints()
     return false
 end
 
--- TLE zeroes out the hero talent section of the export string (replaces it with A's),
--- while Blizzard's GenerateImportString includes hero talent data.
--- Both strings share the same class/spec talent data at the end.
--- Strip the 4-char header and any leading A's to get the comparable core,
--- then check whether the Blizzard string ends with the TLE core.
-local function GetTalentCore(s)
-    if not s or #s < 5 then return "" end
-    return s:sub(5):match("^A*(.+)") or ""
-end
-
--- Returns the name of the currently active talent loadout.
--- Checks TalentLoadoutEx first (if loaded), then falls back to the native WoW loadout name.
-local function GetActiveLoadoutName()
-    local specIndex = GetSpecialization()
-    if not specIndex then return nil end
-
-    -- TalentLoadoutEx: stored as TalentLoadoutEx[CLASS][specIndex], each entry has .text (export string) and .name
-    if TalentLoadoutEx then
-        local _, unitClass = UnitClass("player")
-        local activeConfigID = C_ClassTalents.GetActiveConfigID()
-        if unitClass and activeConfigID and TalentLoadoutEx[unitClass] and TalentLoadoutEx[unitClass][specIndex] then
-            local currentString = C_Traits.GenerateImportString(activeConfigID)
-            if currentString then
-                local blizzCore = GetTalentCore(currentString)
-                for _, v in pairs(TalentLoadoutEx[unitClass][specIndex]) do
-                    if v.text and v.name then
-                        local tleCore = GetTalentCore(v.text)
-                        if tleCore ~= "" and #blizzCore >= #tleCore and blizzCore:sub(-#tleCore) == tleCore then
-                            return v.name
-                        end
-                    end
-                end
-            end
+-- Returns the name and icon of the currently active talent loadout.
+-- Uses TLX.GetLoadedData() (TalentLoadoutEx public API) if available, otherwise
+-- falls back to the native WoW saved-config name (no icon in that case).
+-- icon may be a numeric texture ID or an atlas name string.
+local function GetActiveLoadoutInfo()
+    -- TalentLoadoutEx: TLX.GetLoadedData() returns the first data object whose
+    -- talent string matches the current active configuration.
+    if TLX and TLX.GetLoadedData then
+        local data = TLX.GetLoadedData()
+        if data and data.name then
+            return data.name, data.icon
         end
     end
 
-    -- Native WoW loadout name
+    -- Native WoW loadout name (no icon available)
+    local specIndex = GetSpecialization()
+    if not specIndex then return nil, nil end
     local specID = select(1, GetSpecializationInfo(specIndex))
-    if not specID then return nil end
+    if not specID then return nil, nil end
     local configID = C_ClassTalents.GetLastSelectedSavedConfigID(specID)
     if configID then
         local info = C_Traits.GetConfigInfo(configID)
         if info and info.name and info.name ~= "" then
-            return info.name
+            return info.name, nil
         end
     end
 
-    return nil
+    return nil, nil
 end
 
-function TalentModule:RunCheck()
+function TalentModule:RunCheck(isReadyCheck)
     if not AR.db then return end
     local db = AR.db
 
@@ -236,9 +228,9 @@ function TalentModule:RunCheck()
 
     -- Show active build as flash text (ready check only)
     if db.talents.checks.showActiveBuild and isReadyCheck then
-        local name = GetActiveLoadoutName()
+        local name, icon = GetActiveLoadoutInfo()
         if name then
-            self:ShowBuildText(name)
+            self:ShowBuildText(name, icon)
         end
     end
 end
