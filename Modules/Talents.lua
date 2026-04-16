@@ -129,6 +129,7 @@ local function GetActiveLoadoutInfo()
     -- Ensure the native talent UI addon is loaded before using its APIs.
     if C_AddOns and C_AddOns.LoadAddOn then
         C_AddOns.LoadAddOn("Blizzard_TalentUI")
+        C_AddOns.LoadAddOn("Blizzard_PlayerSpells")
     end
 
     -- Native WoW loadout name (no icon available)
