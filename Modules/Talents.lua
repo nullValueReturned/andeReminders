@@ -126,6 +126,11 @@ local function GetActiveLoadoutInfo()
         end
     end
 
+    -- Ensure the native talent UI addon is loaded before using its APIs.
+    if C_AddOns and C_AddOns.LoadAddOn then
+        C_AddOns.LoadAddOn("Blizzard_TalentUI")
+    end
+
     -- Native WoW loadout name (no icon available)
     local specIndex = GetSpecialization()
     if not specIndex then return nil, nil end
