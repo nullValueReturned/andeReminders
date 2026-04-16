@@ -1,4 +1,4 @@
-local AR = andeReminders
+local AR = AndeReminders
 
 -- Slots that can receive enchants (mirrors NorthernSkyRaidTools logic)
 local ENCHANTABLE_SLOTS = {
@@ -53,7 +53,7 @@ end
 local function GetAlertFrame()
     if alertFrame then return alertFrame end
 
-    alertFrame = CreateFrame("Frame", "andeRemindersEnchantAlert", UIParent, "BackdropTemplate")
+    alertFrame = CreateFrame("Frame", "AndeRemindersEnchantAlert", UIParent, "BackdropTemplate")
     alertFrame:SetSize(360, 80)
     alertFrame:SetPoint("TOP", UIParent, "TOP", 0, -220)
     alertFrame:SetMovable(true)
@@ -170,7 +170,7 @@ function EnchantModule:RunCheck()
     local slots  = table.concat(missing, ", ")
 
     if notify.chat then
-        print("|cFFFF6600[andeReminders]|r Missing enchant: " .. slots)
+        print("|cFFFF6600[AndeReminders]|r Missing enchant: " .. slots)
     end
     if notify.screen then
         self:ShowAlert("|cFFFFCC00Missing enchant:|r\n" .. slots)

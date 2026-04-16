@@ -1,4 +1,4 @@
-local AR = andeReminders
+local AR = AndeReminders
 
 -- ---------------------------------------------------------------------------
 -- Spec data: primary stat + weapon-type requirements per specialization ID.
@@ -120,7 +120,7 @@ end
 local function GetAlertFrame()
     if alertFrame then return alertFrame end
 
-    alertFrame = CreateFrame("Frame", "andeRemindersGearAlert", UIParent, "BackdropTemplate")
+    alertFrame = CreateFrame("Frame", "AndeRemindersGearAlert", UIParent, "BackdropTemplate")
     alertFrame:SetSize(380, 80)
     alertFrame:SetPoint("TOP", UIParent, "TOP", 0, -300)
     alertFrame:SetMovable(true)
@@ -294,7 +294,7 @@ function GearModule:RunCheck()
     local notify = db.gear.notify
     if notify.chat then
         for _, issue in ipairs(issues) do
-            print("|cFFFF6600[andeReminders]|r " .. issue)
+            print("|cFFFF6600[AndeReminders]|r " .. issue)
         end
     end
     if notify.screen then

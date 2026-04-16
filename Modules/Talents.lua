@@ -1,4 +1,4 @@
-local AR = andeReminders
+local AR = AndeReminders
 
 local TalentModule = {}
 local buildTextFrame = nil -- loose flash text for active build
@@ -52,7 +52,7 @@ end
 local function GetBuildTextFrame()
     if buildTextFrame then return buildTextFrame end
 
-    local f = CreateFrame("Frame", "andeRemindersBuildText", UIParent)
+    local f = CreateFrame("Frame", "AndeRemindersBuildText", UIParent)
     f:SetAllPoints(UIParent)
     f:SetFrameStrata("HIGH")
     f:EnableMouse(false)

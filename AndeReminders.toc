@@ -1,12 +1,12 @@
 ## Interface: 120000, 120001
-## Title: andeReminders
+## Title: AndeReminders
 ## Notes: Modular reminder addon for enchants, repairs, and more
 ## Author:
 ## Version: 1.0
-## SavedVariables: andeRemindersDB
+## SavedVariables: AndeRemindersDB
 ## OptionalDeps: LibSharedMedia-3.0
 
-andeReminders.lua
+AndeReminders.lua
 Modules\Enchants.lua
 Modules\Gear.lua
 Modules\Talents.lua

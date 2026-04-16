@@ -1,5 +1,5 @@
-andeReminders = {}
-local AR = andeReminders
+AndeReminders = {}
+local AR = AndeReminders
 
 AR.registeredModules = {} -- ordered list of { name, module, tabButton, contentFrame }
 
@@ -10,10 +10,10 @@ end
 
 -- Initialize saved variables, then let each module set its own defaults.
 function AR:InitDB()
-    if not andeRemindersDB then
-        andeRemindersDB = {}
+    if not AndeRemindersDB then
+        AndeRemindersDB = {}
     end
-    AR.db = andeRemindersDB
+    AR.db = AndeRemindersDB
     for _, entry in ipairs(AR.registeredModules) do
         if entry.module.InitDB then
             entry.module:InitDB(AR.db)
@@ -46,7 +46,7 @@ function AR:CreateSettingsWindow()
     if settingsFrame then return settingsFrame end
 
     -- Main frame
-    local f = CreateFrame("Frame", "andeRemindersSettings", UIParent, "BackdropTemplate")
+    local f = CreateFrame("Frame", "AndeRemindersSettings", UIParent, "BackdropTemplate")
     f:SetSize(540, 460)
     f:SetPoint("CENTER")
     f:SetMovable(true)
@@ -66,7 +66,7 @@ function AR:CreateSettingsWindow()
     -- Title text
     local title = f:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
     title:SetPoint("TOP", f, "TOP", 0, -14)
-    title:SetText("anDeReminders")
+    title:SetText("AndeReminders")
 
     -- Close button
     local closeBtn = CreateFrame("Button", nil, f, "UIPanelCloseButton")
@@ -167,7 +167,7 @@ end
 local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:SetScript("OnEvent", function(self, event, addonName)
-    if event == "ADDON_LOADED" and addonName == "andeReminders" then
+    if event == "ADDON_LOADED" and addonName == "AndeReminders" then
         AR:InitDB()
         AR:CreateSettingsWindow()
         self:UnregisterEvent("ADDON_LOADED")
