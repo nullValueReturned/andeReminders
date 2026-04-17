@@ -256,7 +256,7 @@ function GearModule:CheckLowItemLevel(threshold)
     return issues
 end
 
--- Returns broken and low-durability slot name lists (durability <= 20% of max).
+-- Returns broken and low-durability slot name lists (durability <= 50% of max).
 function GearModule:CheckLowDurability()
     local broken = {}
     local low = {}
@@ -265,7 +265,7 @@ function GearModule:CheckLowDurability()
         if current and max and max > 0 then
             if current == 0 then
                 table.insert(broken, slotName)
-            elseif current / max <= 0.2 then
+            elseif current / max <= 0.5 then
                 table.insert(low, slotName)
             end
         end
