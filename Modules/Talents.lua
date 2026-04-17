@@ -152,7 +152,7 @@ function TalentModule:RunCheck(isReadyCheck)
     if not AR.db then return end
     local db = AR.db
 
-    -- Show active build as flash text (ready check only!)
+    -- Show active build as flash text (ready check only)
     if db.talents.checks.showActiveBuild and isReadyCheck then
         local name, icon = GetActiveLoadoutInfo()
         if name then
