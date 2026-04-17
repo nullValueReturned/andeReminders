@@ -90,6 +90,7 @@ local SLOT_NAMES = {
 local GearModule = {}
 local checkTimer = nil
 local alertFrame = nil
+local durabilityWarnFrame = nil
 
 -- ---------------------------------------------------------------------------
 -- Database
@@ -256,40 +257,51 @@ function GearModule:CheckLowItemLevel(threshold)
     return issues
 end
 
--- Returns broken and low-durability slot name lists (durability <= 50% of max).
-function GearModule:CheckLowDurability()
-    local broken = {}
-    local low = {}
-    for slot, slotName in pairs(SLOT_NAMES) do
-        local current, max = GetInventoryItemDurability(slot)
-        if current and max and max > 0 then
-            if current == 0 then
-                table.insert(broken, slotName)
-            elseif current / max <= 0.5 then
-                table.insert(low, slotName)
-            end
-        end
-    end
-    return broken, low
+local function GetDurabilityWarnFrame()
+    if durabilityWarnFrame then return durabilityWarnFrame end
+
+    durabilityWarnFrame = CreateFrame("Frame", "AndeRemindersDurabilityWarn", UIParent)
+    durabilityWarnFrame:SetSize(300, 32)
+    durabilityWarnFrame:SetPoint("TOP", UIParent, "TOP", 0, -380)
+    durabilityWarnFrame:SetMovable(true)
+    durabilityWarnFrame:EnableMouse(true)
+    durabilityWarnFrame:RegisterForDrag("LeftButton")
+    durabilityWarnFrame:SetScript("OnDragStart", durabilityWarnFrame.StartMoving)
+    durabilityWarnFrame:SetScript("OnDragStop", durabilityWarnFrame.StopMovingOrSizing)
+    durabilityWarnFrame:SetFrameStrata("MEDIUM")
+    durabilityWarnFrame:Hide()
+
+    local label = durabilityWarnFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    label:SetPoint("CENTER", durabilityWarnFrame, "CENTER", 0, 0)
+    label:SetText("|cFFFF6600[AR]|r Low Durability \226\128\148 Repair your gear!")
+    durabilityWarnFrame.label = label
+
+    return durabilityWarnFrame
 end
 
--- Shows a UIErrorsFrame message above the character; skipped while in combat.
+-- Returns true if any equipped slot has durability below 50%.
+function GearModule:CheckLowDurability()
+    for slot in pairs(SLOT_NAMES) do
+        local current, max = GetInventoryItemDurability(slot)
+        if current and max and max > 0 and current / max < 0.5 then
+            return true
+        end
+    end
+    return false
+end
+
+-- Shows or hides the persistent durability warning; skipped while in combat.
 function GearModule:RunDurabilityCheck()
     if not AR.db or not AR.db.gear then return end
     if not AR.db.gear.checks.lowDurability then return end
     if InCombatLockdown() then return end
 
-    local broken, low = self:CheckLowDurability()
-    if #broken == 0 and #low == 0 then return end
-
-    local parts = {}
-    if #broken > 0 then
-        table.insert(parts, "|cFFFF0000Broken: " .. table.concat(broken, ", ") .. "|r")
+    local wf = GetDurabilityWarnFrame()
+    if self:CheckLowDurability() then
+        wf:Show()
+    else
+        wf:Hide()
     end
-    if #low > 0 then
-        table.insert(parts, "|cFFFF6600Low durability: " .. table.concat(low, ", ") .. "|r")
-    end
-    UIErrorsFrame:AddMessage("[AR] " .. table.concat(parts, "  "), 1, 0.4, 0, 1)
 end
 
 -- Run all enabled checks and dispatch notifications.
@@ -363,6 +375,7 @@ end)
 local durabilityEvents = CreateFrame("Frame")
 durabilityEvents:RegisterEvent("PLAYER_DEAD")
 durabilityEvents:RegisterEvent("UPDATE_INVENTORY_DURABILITY")
+durabilityEvents:RegisterEvent("PLAYER_REGEN_ENABLED")
 durabilityEvents:SetScript("OnEvent", function()
     GearModule:RunDurabilityCheck()
 end)
@@ -498,7 +511,7 @@ function GearModule:BuildUI(parent, db)
 
     local lDur = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     lDur:SetPoint("LEFT", cbDur, "RIGHT", 6, 0)
-    lDur:SetText("Low durability warning (<50%, shown above character, outside combat)")
+    lDur:SetText("Low durability warning (<50%, persists until repaired)")
 end
 
 AR:RegisterModule("Gear", GearModule)
