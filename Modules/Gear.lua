@@ -261,7 +261,7 @@ local function GetDurabilityWarnFrame()
     if durabilityWarnFrame then return durabilityWarnFrame end
 
     durabilityWarnFrame = CreateFrame("Frame", "AndeRemindersDurabilityWarn", UIParent)
-    durabilityWarnFrame:SetSize(300, 32)
+    durabilityWarnFrame:SetSize(1200, 70)
     durabilityWarnFrame:SetPoint("TOP", UIParent, "TOP", 0, -380)
     durabilityWarnFrame:SetMovable(true)
     durabilityWarnFrame:EnableMouse(true)
@@ -272,6 +272,7 @@ local function GetDurabilityWarnFrame()
     durabilityWarnFrame:Hide()
 
     local label = durabilityWarnFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    label:SetFont(label:GetFont(), 48)
     label:SetPoint("CENTER", durabilityWarnFrame, "CENTER", 0, 0)
     label:SetText("|cFFFF6600[AR]|r Low Durability \226\128\148 Repair your gear!")
     durabilityWarnFrame.label = label
