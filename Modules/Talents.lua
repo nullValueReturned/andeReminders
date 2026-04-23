@@ -321,10 +321,15 @@ function TalentModule:BuildUI(parent, db)
     -- Scrollbar
     local scrollBar
     if hasScrollbar then
-        scrollBar = CreateFrame("Slider", nil, popup, "UIPanelScrollBarTemplate")
+        scrollBar = CreateFrame("Slider", nil, popup)
+        scrollBar:SetOrientation("VERTICAL")
         scrollBar:SetWidth(SCROLLBAR_W)
         scrollBar:SetPoint("TOPRIGHT",    popup, "TOPRIGHT",    -2, -18)
         scrollBar:SetPoint("BOTTOMRIGHT", popup, "BOTTOMRIGHT", -2,  18)
+        local thumb = scrollBar:CreateTexture(nil, "OVERLAY")
+        thumb:SetTexture("Interface/Buttons/UI-ScrollBar-Knob")
+        thumb:SetSize(14, 14)
+        scrollBar:SetThumbTexture(thumb)
         scrollBar:SetMinMaxValues(0, maxScroll)
         scrollBar:SetValue(0)
         scrollBar:SetValueStep(ITEM_HEIGHT)
