@@ -140,6 +140,7 @@ end
 function EnchantModule:RunCheck()
     if UnitLevel("player") < 90 then return end
     if not AR.db then return end
+    if InCombatLockdown() then return end
     local missing = self:CheckAll(AR.db)
     if #missing == 0 then
         if alertFrame and alertFrame:IsShown() then alertFrame:Hide() end
@@ -173,7 +174,14 @@ local enchantEvents = CreateFrame("Frame")
 enchantEvents:RegisterEvent("PLAYER_LOGIN")
 enchantEvents:RegisterEvent("PLAYER_ENTERING_WORLD")
 enchantEvents:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
-enchantEvents:SetScript("OnEvent", function() ScheduleCheck() end)
+enchantEvents:RegisterEvent("PLAYER_REGEN_DISABLED")
+enchantEvents:SetScript("OnEvent", function(self, event)
+    if event == "PLAYER_REGEN_DISABLED" then
+        if alertFrame then alertFrame:Hide() end
+    else
+        ScheduleCheck()
+    end
+end)
 
 -- ---------------------------------------------------------------------------
 -- Settings UI

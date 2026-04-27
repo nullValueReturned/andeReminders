@@ -289,6 +289,7 @@ end
 function GearModule:RunCheck()
     if UnitLevel("player") < 90 then return end
     if not AR.db or not AR.db.gear then return end
+    if InCombatLockdown() then return end
     local db = AR.db
 
     local specIndex = GetSpecialization()
@@ -345,13 +346,27 @@ gearEvents:RegisterEvent("PLAYER_LOGIN")
 gearEvents:RegisterEvent("PLAYER_ENTERING_WORLD")
 gearEvents:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 gearEvents:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
-gearEvents:SetScript("OnEvent", function() ScheduleCheck() end)
+gearEvents:RegisterEvent("PLAYER_REGEN_DISABLED")
+gearEvents:SetScript("OnEvent", function(self, event)
+    if event == "PLAYER_REGEN_DISABLED" then
+        if alertFrame then alertFrame:Hide() end
+    else
+        ScheduleCheck()
+    end
+end)
 
 local durabilityEvents = CreateFrame("Frame")
 durabilityEvents:RegisterEvent("PLAYER_DEAD")
 durabilityEvents:RegisterEvent("UPDATE_INVENTORY_DURABILITY")
 durabilityEvents:RegisterEvent("PLAYER_REGEN_ENABLED")
-durabilityEvents:SetScript("OnEvent", function() GearModule:RunDurabilityCheck() end)
+durabilityEvents:RegisterEvent("PLAYER_REGEN_DISABLED")
+durabilityEvents:SetScript("OnEvent", function(self, event)
+    if event == "PLAYER_REGEN_DISABLED" then
+        if durabilityWarnFrame then durabilityWarnFrame:Hide() end
+    else
+        GearModule:RunDurabilityCheck()
+    end
+end)
 
 -- ---------------------------------------------------------------------------
 -- Settings UI

@@ -139,6 +139,7 @@ end
 
 function TalentModule:RunCheck(isReadyCheck)
     if not AR.db then return end
+    if InCombatLockdown() then return end
     local db = AR.db
     if db.talents.checks.showActiveBuild and isReadyCheck then
         local name, icon = GetActiveLoadoutInfo()
@@ -155,9 +156,12 @@ local tlxInitDone = false
 local talentEvents = CreateFrame("Frame")
 talentEvents:RegisterEvent("READY_CHECK")
 talentEvents:RegisterEvent("PLAYER_ENTERING_WORLD")
+talentEvents:RegisterEvent("PLAYER_REGEN_DISABLED")
 talentEvents:SetScript("OnEvent", function(self, event)
     if event == "READY_CHECK" then
         TalentModule:RunCheck(true)
+    elseif event == "PLAYER_REGEN_DISABLED" then
+        if buildTextFrame then buildTextFrame:Hide() end
     elseif event == "PLAYER_ENTERING_WORLD" and not tlxInitDone then
         tlxInitDone = true
         C_Timer.After(2, function()
